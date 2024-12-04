@@ -49,11 +49,10 @@ function displayScreens(screen) {
     screen.classList.add('active');
 }
 
-
 // Fetch Categories
 async function fetchCategories() {
     try {
-        const response = await fetch(`${BASE_URL}?limit=10`);
+        const response = await fetch(`${BASE_URL}?limit=20`);
         const data = await response.json();
         const categories = [...new Set(data.map(question => question.category))];
         displayCategories(categories);
@@ -75,6 +74,10 @@ function displayCategories(categories) {
             catList.appendChild(button);
         }
     });
+
+    if (gameStatus.usedCategories.length === categories.length) {
+        endGame();
+    }
 }
 
 // Select Category
@@ -89,15 +92,35 @@ async function selectCategory(category) {
 async function fetchQuestions(category) {
     try {
         const response = await fetch(`${BASE_URL}?categories=${category}&limit=6`);
-        gameStatus.questions = await response.json();
-        gameStatus.questions.sort((a, b) => {
-            const difficultyOrder = { easy: 2, medium: 2, hard: 2 };
-            return difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty];
-        });
+        let questions = await response.json();
+        questions = questions.filter(q => q.difficulty);  // Ensure all questions have difficulty
+        gameStatus.questions = groupQuestionsByDifficulty(questions);
     } catch (error) {
         console.error('Error fetching questions:', error);
         showResult('Failed to fetch questions. Please try again.');
     }
+}
+
+// Group Questions by Difficulty
+function groupQuestionsByDifficulty(questions) {
+    let grouped = {
+        easy: [],
+        medium: [],
+        hard: []
+    };
+
+    questions.forEach(q => {
+        if (grouped[q.difficulty]) {
+            grouped[q.difficulty].push(q);
+        }
+    });
+
+    // Ensure we get at least 2 questions per difficulty, and no repeats
+    return [
+        ...grouped.easy.slice(0, 2),
+        ...grouped.medium.slice(0, 2),
+        ...grouped.hard.slice(0, 2),
+    ];
 }
 
 // Start Question Round
@@ -123,7 +146,7 @@ function displayQuestion() {
     allAnswers.forEach(answer => {
         const button = document.createElement('button');
         button.textContent = answer;
-        button.addEventListener('click', () => handleAnswer(answer));
+        button.addEventListener('click', () => handleAnswer(answer, question));
         options.appendChild(button);
     });
 
@@ -131,9 +154,11 @@ function displayQuestion() {
 }
 
 // Handle Answer
-function handleAnswer(answer) {
-    const question = gameStatus.questions[gameStatus.currentQuestionIndex];
+function handleAnswer(answer, question) {
     const currentPlayer = gameStatus.players[gameStatus.currentPlayer];
+
+    // Disable all buttons to prevent multiple answers
+    document.querySelectorAll('#options button').forEach(button => button.disabled = true);
 
     let points = 0;
     if (answer === question.correctAnswer) {
@@ -162,12 +187,17 @@ function handleAnswer(answer) {
 // Next Question
 function nextQuestion() {
     gameStatus.currentQuestionIndex++;
-    // Switch player
-    gameStatus.currentPlayer = 1 - gameStatus.currentPlayer; 
+
     if (gameStatus.currentQuestionIndex < gameStatus.questions.length) {
         displayQuestion();
     } else {
         displayScreens(postCategories);
+        const lastCategory = gameStatus.currentCategory;
+        const categoryButton = [...document.querySelectorAll('#cat-list button')]
+            .find(button => button.textContent === lastCategory);
+        if (categoryButton) {
+            categoryButton.disabled = true;
+        }
     }
 }
 
@@ -211,7 +241,6 @@ function endGame() {
 
     displayScreens(gameOver);
 }
-
 
 // Reset Game
 function resetGame() {

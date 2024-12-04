@@ -60,6 +60,11 @@ button:hover {
     background-color: var(--secondary);
 }
 
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
 .screen {
     display: none;
 }
@@ -89,6 +94,12 @@ button:hover {
 
 #game-over h2 {
     color: var(--accent);
+}
+
+.result {
+    text-align: center;
+    margin-top: 1rem;
+    font-weight: bold;
 }
 
 @media (max-width: 480px) {
